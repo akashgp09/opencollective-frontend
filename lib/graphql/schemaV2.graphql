@@ -768,23 +768,6 @@ type Bot implements Account {
   virtualCardMerchants(limit: Int = 100, offset: Int = 0): AccountCollection!
 }
 
-input BraintreePaymentInput {
-  nonce: String!
-  type: BraintreePaymentInputType!
-  details: JSON
-  binData: JSON
-  deviceData: JSON
-  description: String
-  vaulted: Boolean
-}
-
-"""
-Type of account used to pay with Braintree
-"""
-enum BraintreePaymentInputType {
-  PayPalAccount
-}
-
 """
 Input to order results chronologically
 """
@@ -1318,7 +1301,6 @@ enum ConnectedAccountService {
   twitter
   transferwise
   privacy
-  braintree
   meetup @deprecated(reason: "Not using this service anymore")
 }
 
@@ -5154,6 +5136,42 @@ type MemberCollection implements Collection {
 }
 
 """
+An invitation to join the members of a collective
+"""
+type MemberInvitation {
+  id: Int
+  createdAt: DateTime
+  collective: Collective
+  member: Collective
+  role: MemberRole
+  description: String
+  tier: Tier
+  since: DateTime
+}
+
+"""
+Input to invite a member
+"""
+input MemberInvitationInput {
+  """
+  Reference to an account for the invitee
+  """
+  memberAccount: AccountReferenceInput!
+
+  """
+  Reference to an account for the inviting Collective
+  """
+  account: AccountReferenceInput!
+
+  """
+  Role of the invitee
+  """
+  role: MemberRole
+  description: String
+  since: ISODateTime
+}
+
+"""
 This represents a MemberOf relationship (ie: Collective backed by an Organization)
 """
 type MemberOf {
@@ -5813,6 +5831,16 @@ type Mutation {
     """
     message: String
   ): Member!
+
+  """
+  Invite a new member to the Collective
+  """
+  inviteMember(
+    """
+    Reference to an account for the invitee
+    """
+    memberInvitation: MemberInvitationInput!
+  ): MemberInvitation!
   createUpdate(update: UpdateCreateInput!): Update!
   editUpdate(update: UpdateUpdateInput!): Update!
   publishUpdate(id: String!, notificationAudience: UpdateAudience!): Update!
@@ -6490,11 +6518,6 @@ input PaymentMethodInput {
   To pass when type is PAYPAL
   """
   paypalInfo: PaypalPaymentInput
-
-  """
-  To pass when type is BRAINTREE
-  """
-  braintreeInfo: BraintreePaymentInput
 }
 
 enum PaymentMethodLegacyType {
@@ -6503,7 +6526,6 @@ enum PaymentMethodLegacyType {
   PREPAID_BUDGET
   ACCOUNT_BALANCE
   PAYPAL
-  BRAINTREE_PAYPAL
   BANK_TRANSFER
   ADDED_FUNDS
 }
@@ -6517,7 +6539,6 @@ input PaymentMethodReferenceInput {
 
 enum PaymentMethodService {
   PAYPAL
-  BRAINTREE
   STRIPE
   OPENCOLLECTIVE
   PREPAID
@@ -6531,7 +6552,6 @@ enum PaymentMethodType {
   collective
   host
   adaptive
-  paypal
   giftcard
   manual
 }
@@ -7169,6 +7189,11 @@ type Query {
     """
     tags: [String]
   ): HostCollection
+
+  """
+  [AUTHENTICATED] Returns the pending invitations
+  """
+  memberInvitations(CollectiveId: Int, MemberCollectiveId: Int): [MemberInvitation]
   order(
     """
     Identifiers to retrieve the Order
@@ -7357,18 +7382,6 @@ type Query {
     """
     tier: TierReferenceInput
   ): PaypalPlan!
-  thirdPartyApiClientToken(
-    """
-    The account that serves as a payment target
-    """
-    account: AccountReferenceInput!
-
-    """
-    The account that is contributing
-    """
-    fromAccount: AccountReferenceInput
-    service: ThirdPartyApiWithClientToken!
-  ): String!
   loggedInAccount: Account
 }
 
@@ -7396,13 +7409,6 @@ type TagStat {
   Number of entries for this tag
   """
   count: Int!
-}
-
-"""
-Third party APIs for which Open Collective API can generate tokens
-"""
-enum ThirdPartyApiWithClientToken {
-  BRAINTREE
 }
 
 """
